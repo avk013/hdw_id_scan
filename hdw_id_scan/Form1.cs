@@ -1,12 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
-using System.Drawing;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+
 using System.Windows.Forms;
+using System.Management;
 
 namespace hdw_id_scan
 {
@@ -15,6 +10,27 @@ namespace hdw_id_scan
         public Form1()
         {
             InitializeComponent();
+        }
+
+        private void button1_Click(object sender, EventArgs e)
+        {
+            ManagementObjectSearcher searcher = new ManagementObjectSearcher
+              ("SELECT Product, SerialNumber FROM Win32_BaseBoard");
+
+            ManagementObjectCollection information = searcher.Get();
+            foreach (ManagementObject obj in information)
+            {
+                foreach (PropertyData data in obj.Properties)
+                    listBox1.Items.Add(string.Format("{0} = {1}", data.Name, data.Value));
+            }
+            searcher = new ManagementObjectSearcher ("SELECT Name, ProcessorId FROM Win32_Processor");
+            information = searcher.Get();
+            foreach (ManagementObject obj in information)
+            {
+                foreach (PropertyData data in obj.Properties)
+                    listBox1.Items.Add(string.Format("{0} = {1}", data.Name, data.Value));
+            }
+            // listBox1.Items.Add(Environment.)
         }
     }
 }

@@ -3,6 +3,9 @@ using System.Windows.Forms;
 using System.Management;
 using System.Text;
 using MySql.Data.MySqlClient;
+using System.Drawing;
+
+
 // mysql
 //server edis.mysql.ukraine.com.ua
 //name edis_gr42
@@ -20,6 +23,8 @@ namespace hdw_id_scan
         const string pass ="lalala42bombom";
         const string db ="edis_gr42";
         string[] select_from_win32;
+        string[] data2db = new string[1];
+        int i = 0;
         private MySqlConnection connection;
 
         private void init()
@@ -74,55 +79,8 @@ namespace hdw_id_scan
         {
             InitializeComponent();
         }
-
-        private void button1_Click(object sender, EventArgs e)
-        {
-            listBox1.Items.Clear();
-            ManagementObjectSearcher searcher = new ManagementObjectSearcher
-              ("SELECT Manufacturer, Product, SerialNumber FROM Win32_BaseBoard");
-
-            ManagementObjectCollection information = searcher.Get();
-            foreach (ManagementObject obj in information)
-            {
-                foreach (PropertyData data in obj.Properties)
-                    listBox1.Items.Add(string.Format("{0} = {1}", data.Name, data.Value));
-            }
-            searcher = new ManagementObjectSearcher ("SELECT Name, MaxClockSpeed, ProcessorId FROM Win32_Processor");
-            information = searcher.Get();
-            foreach (ManagementObject obj in information)
-            {
-                foreach (PropertyData data in obj.Properties)
-                    listBox1.Items.Add(string.Format("{0} = {1}", data.Name, data.Value));
-            }
-            searcher = new ManagementObjectSearcher("SELECT Caption, AdapterRAM FROM Win32_VideoController");
-            information = searcher.Get();
-            foreach (ManagementObject obj in information)
-            {
-                foreach (PropertyData data in obj.Properties)
-                    listBox1.Items.Add(string.Format("{0} = {1}", data.Name, data.Value));
-            }
-            /////////
-            searcher = new ManagementObjectSearcher("SELECT MacAddress FROM Win32_NetworkAdapterConfiguration");
-            information = searcher.Get();
-            foreach (ManagementObject obj in information)
-            {
-                foreach (PropertyData data in obj.Properties)
-                    if (string.Format("{0}", data.Value)!="") listBox1.Items.Add(string.Format("{0} = {1}", data.Name, data.Value.ToString().Replace(":", "")));
-            }
-          searcher = new ManagementObjectSearcher("SELECT Model, Size, SerialNumber FROM Win32_DiskDrive");
-  // searcher = new ManagementObjectSearcher("SELECT * FROM Win32_DiskDrive");
-         //    searcher = new ManagementObjectSearcher("SELECT * FROM Win32_PhysicalMedia");
-            information = searcher.Get();
-            byte[] data1= FromHex("20");
-            foreach (ManagementObject obj in information)
-            {
-                foreach (PropertyData data in obj.Properties)
-                {  if (string.Format("{0}", data.Value) != "") listBox1.Items.Add(string.Format("{0} = {1}", data.Name, data.Value.ToString().Replace(":", "")));
-                   string aa;
-                   if (data.Name == "SerialNumber")  data1 = FromHex(data.Value.ToString());
-                    if (data.Name != "SerialNumber") aa = data.Value.ToString().Replace(":", ""); else aa = Encoding.ASCII.GetString(data1);
-                    textBox1.Text += data.Name+" = "+aa+Environment.NewLine;}}}
-        public static byte[] FromHex(string hex)
+               
+        public static string FromHex(string hex)
         {// переводим строку кодов символов в строку символов, исключая пробелы
            hex = hex.Replace("20", "");
             byte[] raw = new byte[hex.Length / 2];
@@ -132,12 +90,29 @@ namespace hdw_id_scan
             {   byte a=raw[i+1];
                 raw[i + 1] = raw[i];
                 raw[i] = a;}
-                return raw;
+            return Encoding.ASCII.GetString(raw);
         }
 
         private void button2_Click(object sender, EventArgs e)
         {
-            listBox1.Items.Clear();
+            const int codeLen = 11; // Максимальный размер кода
+            const string dictionary = "abcdefghijkmnopqrstvwxyz23456789"; // словарь возможных значений
+            Random rnd = new Random(); // генератор псевдослучайных чисел
+            StringBuilder code = new StringBuilder(codeLen); // тут собираем код
+            while (code.Length < codeLen) // пока не наберём нужное количество символов
+                // добавляем в код символы по случайному индексу из словаря
+                code.Append(dictionary[rnd.Next(0, dictionary.Length)]);
+            string generatedCode = code.ToString(); // сохраняем получившийся код
+            string name_komp = generatedCode;
+            if (InputBox("имя компьютера", "введите осознанно геграфическое название компьютера:", ref name_komp) == DialogResult.OK)
+            { label1.Text = name_komp + "_" + SystemInformation.UserName + "_" + Environment.MachineName; ; }
+            //   textBox1.Text += "\r\nRAM: " + Convert.ToDouble(ram.GetPropertyValue("Capacity")) / 1073741824 + "GB";
+            string inn_komp = "none";
+            if (InputBox("инвертарный номер компьютера", "введите ИНН компьютера:", ref inn_komp) == DialogResult.OK)
+            { label2.Text = inn_komp; }
+            //else
+            {
+                listBox1.Items.Clear();
             init();
             string query = "select id, name, block from 2_hdw_accessories order by block", outex = "";
             if (this.OpenConnection() == true)
@@ -154,27 +129,123 @@ namespace hdw_id_scan
                     string[] m = { dataReader["id"].ToString(), dataReader["name"].ToString(), dataReader["block"].ToString()};
                     go_info(m);
                  }
-
                 //close Data Reader
                 dataReader.Close();
                 //close Connection
                 this.CloseConnection();
                 }
-            //
-            textBox1.Text = outex;
+                Insert(data2db, inn_komp, name_komp);
+                // CloseConnection();
+                //
+                textBox1.Text = outex;
         }
+        }
+        public void Insert(string[] mas, string inn, string name)
+      {   //// думаю что данні нужно получать в виде массива
+            long id_komp = 0;
+            string query = "INSERT INTO 2_hdw_komp (`name`, `invertar`) VALUES('" + name + "', '" + inn+ "');";
+            //open connection
+            if (this.OpenConnection() == true)
+            { //create command and assign the query and connection from the constructor
+                MySqlCommand cmd = new MySqlCommand(query, connection);
+                //Execute command
+                cmd.ExecuteNonQuery();
+                id_komp = cmd.LastInsertedId;
+                //close connection
+                this.CloseConnection();
+            }
+            MessageBox.Show(id_komp.ToString());
+            string[] record;
+            for (int i=0;i<mas.Length-1;i++)
+            {
+                record = mas[i].Split('Ь');
+                long id_assesories = Convert.ToInt32(record[0]);
+                string values = record[1];
+                query = "INSERT INTO 2_hdw_zmist (`komp`, `assesories`, `value`,`dat`) VALUES('" + id_komp + "', '" + id_assesories + "', '" + values+ "', now());";
+                //open connection
+                if (this.OpenConnection() == true)
+                { //create command and assign the query and connection from the constructor
+                    MySqlCommand cmd = new MySqlCommand(query, connection);
+                    //Execute command
+                    cmd.ExecuteNonQuery();
+                    //close connection
+                    this.CloseConnection();
+                }}}
+
         private void go_info(string[] massiv)
         {
+            string value;
+            
             string sql = "SELECT " + massiv[1] + " FROM Win32_" + massiv[2];
-            ManagementObjectSearcher searcher = new ManagementObjectSearcher
-  (sql);
+            ManagementObjectSearcher searcher = new ManagementObjectSearcher (sql);
 
             ManagementObjectCollection information = searcher.Get();
             foreach (ManagementObject obj in information)
             {
                 foreach (PropertyData data in obj.Properties)
-                    if (string.Format("{0}", data.Value) != "") listBox1.Items.Add(massiv[0]+massiv[1]+massiv[2]+"_"+ string.Format("{0} = {1}", data.Name, data.Value));
+                    if ((string.Format("{0}", data.Value) != "") && (string.Format("{0}", data.Value) != "20:41:53:59:4E:FF"))
+                    {
+                     if (massiv[0]=="12") value = FromHex(data.Value.ToString()).ToString(); else value = data.Value.ToString();
+                        //data2db[i] = massiv[0] + "Ь" + data.Value.ToString()+ "Ь"+"0";                        
+                        data2db[i] = massiv[0] + "Ь" + value + "Ь" + "0";
+                        listBox1.Items.Add(massiv[0] + massiv[1] + massiv[2] + "_" + string.Format("{0} = {1}", data.Name, value));
+                        Array.Resize(ref data2db, ++i+1);
+                    }
+            }
+
+            
+        }
+
+        private void button3_Click(object sender, EventArgs e)
+        {
+          
+
+
+            var searcher = new ManagementObjectSearcher("Select * From Win32_PhysicalMemory");
+            var information = searcher.Get();
+            foreach (ManagementObject obj in information)
+            {
+                foreach (PropertyData data in obj.Properties)
+                    listBox1.Items.Add(string.Format("{0} = {1}", data.Name, data.Value));
             }
         }
+        public static DialogResult InputBox(string title, string promptText, ref string value)
+        {
+            Form form = new Form();
+            Label label = new Label();
+            TextBox textBox = new TextBox();
+            Button buttonOk = new Button();
+         //   Button buttonCancel = new Button();
+            form.Text = title;
+            label.Text = promptText;
+            textBox.Text = value;
+            buttonOk.Text = "OK";
+         //   buttonCancel.Text = "Cancel";
+            buttonOk.DialogResult = DialogResult.OK;
+         //   buttonCancel.DialogResult = DialogResult.Cancel;
+            label.SetBounds(9, 20, 372, 13);
+            textBox.SetBounds(12, 36, 372, 20);
+            buttonOk.SetBounds(228, 72, 75, 23);
+           // buttonCancel.SetBounds(309, 72, 75, 23);
+            label.AutoSize = true;
+            textBox.Anchor = textBox.Anchor | AnchorStyles.Right;
+            buttonOk.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
+//            buttonCancel.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
+
+            form.ClientSize = new Size(396, 107);
+            //form.Controls.AddRange(new Control[] { label, textBox, buttonOk, buttonCancel });
+            form.Controls.AddRange(new Control[] { label, textBox, buttonOk });
+            form.ClientSize = new Size(Math.Max(300, label.Right + 10), form.ClientSize.Height);
+            form.FormBorderStyle = FormBorderStyle.FixedDialog;
+            form.StartPosition = FormStartPosition.CenterScreen;
+            form.MinimizeBox = false;
+            form.MaximizeBox = false;
+            form.AcceptButton = buttonOk;
+         //   form.CancelButton = buttonCancel;
+            DialogResult dialogResult = form.ShowDialog();
+            value = textBox.Text;
+            return dialogResult;
+        }
+
     }
 }

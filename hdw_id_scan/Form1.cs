@@ -22,7 +22,6 @@ namespace hdw_id_scan
         const string name ="edis_gr42";
         const string pass ="lalala42bombom";
         const string db ="edis_gr42";
-        string[] select_from_win32;
         string[] data2db = new string[1];
         int i = 0;
         private MySqlConnection connection;
@@ -143,7 +142,7 @@ namespace hdw_id_scan
         public void Insert(string[] mas, string inn, string name)
       {   //// думаю что данні нужно получать в виде массива
             long id_komp = 0;
-            string query = "INSERT INTO 2_hdw_komp (`name`, `invertar`) VALUES('" + name + "', '" + inn+ "');";
+            string query = "INSERT INTO 2_hdw_komp (`name`, `inventar`) VALUES('" + name + "', '" + inn+ "');";
             //open connection
             if (this.OpenConnection() == true)
             { //create command and assign the query and connection from the constructor

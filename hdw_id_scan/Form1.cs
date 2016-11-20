@@ -6,6 +6,9 @@ using MySql.Data.MySqlClient;
 using System.Drawing;
 using System.Net;
 
+// для подключения mysql.data к exe файлу применяем ilmerge
+//ilmerge /t:winexe /out:123.exe hdw_id_scan.exe mysql.data.dll
+// и все....
 
 // mysql
 //server edis.mysql.ukraine.com.ua

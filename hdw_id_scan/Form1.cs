@@ -4,6 +4,7 @@ using System.Management;
 using System.Text;
 using MySql.Data.MySqlClient;
 using System.Drawing;
+using System.Net;
 
 
 // mysql
@@ -78,7 +79,8 @@ namespace hdw_id_scan
         {
             InitializeComponent();
         }
-               
+        // для первода номера винта в нормальный вид
+         // пока отключен, оказалось что в некоторых устройствах он не зашифрован      
         public static string FromHex(string hex)
         {// переводим строку кодов символов в строку символов, исключая пробелы
            hex = hex.Replace("20", "");
@@ -104,7 +106,8 @@ namespace hdw_id_scan
             string generatedCode = code.ToString(); // сохраняем получившийся код
             string name_komp = generatedCode;
             if (InputBox("имя компьютера", "введите осознанно геграфическое название компьютера:", ref name_komp) == DialogResult.OK)
-            { label1.Text = name_komp + "_" + SystemInformation.UserName + "_" + Environment.MachineName; ; }
+            {   name_komp = name_komp + "_" + SystemInformation.UserName + "_" + Environment.MachineName;
+                label1.Text= name_komp; }
             //   textBox1.Text += "\r\nRAM: " + Convert.ToDouble(ram.GetPropertyValue("Capacity")) / 1073741824 + "GB";
             string inn_komp = "none";
             if (InputBox("инвертарный номер компьютера", "введите ИНН компьютера:", ref inn_komp) == DialogResult.OK)
@@ -113,20 +116,17 @@ namespace hdw_id_scan
             {
                 listBox1.Items.Clear();
             init();
-            string query = "select id, name, block from 2_hdw_accessories order by block", outex = "";
+            string query = "select id, name, block from 2_hdw_accessories order by block";
             if (this.OpenConnection() == true)
             {
                 //Create Command
                 MySqlCommand cmd = new MySqlCommand(query, connection);
                 //Create a data reader and Execute the command
                 MySqlDataReader dataReader = cmd.ExecuteReader();
-
                 //Read the data and store them in the list
                 while (dataReader.Read())
-                {
-                    outex += dataReader["id"].ToString() + dataReader["name"].ToString() + dataReader["block"].ToString() + Environment.NewLine;
-                    string[] m = { dataReader["id"].ToString(), dataReader["name"].ToString(), dataReader["block"].ToString()};
-                    go_info(m);
+                {  string[] m = { dataReader["id"].ToString(), dataReader["name"].ToString(), dataReader["block"].ToString()};
+                   go_info(m);
                  }
                 //close Data Reader
                 dataReader.Close();
@@ -134,10 +134,12 @@ namespace hdw_id_scan
                 this.CloseConnection();
                 }
                 Insert(data2db, inn_komp, name_komp);
+                MessageBox.Show("OK");
+                this.Close();
                 // CloseConnection();
                 //
-                textBox1.Text = outex;
-        }
+
+            }
         }
         public void Insert(string[] mas, string inn, string name)
       {   //// думаю что данні нужно получать в виде массива
@@ -153,14 +155,14 @@ namespace hdw_id_scan
                 //close connection
                 this.CloseConnection();
             }
-            MessageBox.Show(id_komp.ToString());
+          //  MessageBox.Show(id_komp.ToString());
             string[] record;
             for (int i=0;i<mas.Length-1;i++)
             {
                 record = mas[i].Split('Ь');
                 long id_assesories = Convert.ToInt32(record[0]);
                 string values = record[1];
-                query = "INSERT INTO 2_hdw_zmist (`komp`, `assesories`, `value`,`dat`) VALUES('" + id_komp + "', '" + id_assesories + "', '" + values+ "', now());";
+                query = "INSERT INTO 2_hdw_zmist (`komp`, `accessories`, `value`,`dat`) VALUES('" + id_komp + "', '" + id_assesories + "', '" + values+ "', now());";
                 //open connection
                 if (this.OpenConnection() == true)
                 { //create command and assign the query and connection from the constructor
@@ -184,29 +186,16 @@ namespace hdw_id_scan
                 foreach (PropertyData data in obj.Properties)
                     if ((string.Format("{0}", data.Value) != "") && (string.Format("{0}", data.Value) != "20:41:53:59:4E:FF"))
                     {
-                     if (massiv[0]=="12") value = FromHex(data.Value.ToString()).ToString(); else value = data.Value.ToString();
+                   //  if (massiv[0]=="12") value = FromHex(data.Value.ToString()).ToString(); else
+                            value = data.Value.ToString();
                         //data2db[i] = massiv[0] + "Ь" + data.Value.ToString()+ "Ь"+"0";                        
                         data2db[i] = massiv[0] + "Ь" + value + "Ь" + "0";
-                        listBox1.Items.Add(massiv[0] + massiv[1] + massiv[2] + "_" + string.Format("{0} = {1}", data.Name, value));
+                        listBox1.Items.Add(massiv[0] + ". "+massiv[1] + " "+massiv[2] + "_" + string.Format("{0} = {1}", data.Name, value));
                         Array.Resize(ref data2db, ++i+1);
                     }
             }
 
             
-        }
-
-        private void button3_Click(object sender, EventArgs e)
-        {
-          
-
-
-            var searcher = new ManagementObjectSearcher("Select * From Win32_PhysicalMemory");
-            var information = searcher.Get();
-            foreach (ManagementObject obj in information)
-            {
-                foreach (PropertyData data in obj.Properties)
-                    listBox1.Items.Add(string.Format("{0} = {1}", data.Name, data.Value));
-            }
         }
         public static DialogResult InputBox(string title, string promptText, ref string value)
         {
@@ -245,6 +234,37 @@ namespace hdw_id_scan
             value = textBox.Text;
             return dialogResult;
         }
+        public bool ConnectionAvailable(string strServer)
+        {
+            try
+            {
+                HttpWebRequest reqFP = (HttpWebRequest)HttpWebRequest.Create(strServer);
 
+                HttpWebResponse rspFP = (HttpWebResponse)reqFP.GetResponse();
+                if (HttpStatusCode.OK == rspFP.StatusCode)
+                {
+                    // HTTP = 200 - Интернет безусловно есть! 
+                    rspFP.Close();
+                    return true;
+                }
+                else
+                {
+                    // сервер вернул отрицательный ответ, возможно что инета нет
+                    rspFP.Close();
+                    return false;
+                }
+            }
+            catch (WebException)
+            {
+                // Ошибка, значит интернета у нас нет. Плачем :'(
+                return false;
+            }
+        }
+
+        private void Form1_Load(object sender, EventArgs e)
+        {
+            //MessageBox.Show(ConnectionAvailable("http://www.google.com").ToString());
+            if (ConnectionAvailable("http://www.google.com") == false) this.Close(); ;
+        }
     }
 }

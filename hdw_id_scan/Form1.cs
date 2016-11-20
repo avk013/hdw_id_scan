@@ -264,7 +264,11 @@ namespace hdw_id_scan
         private void Form1_Load(object sender, EventArgs e)
         {
             //MessageBox.Show(ConnectionAvailable("http://www.google.com").ToString());
-            if (ConnectionAvailable("http://www.google.com") == false) this.Close(); ;
+            if (ConnectionAvailable("http://www.google.com") == false)
+            {
+                MessageBox.Show("не вижу интернета :(((((");
+                this.Close();
+            };
         }
     }
 }
